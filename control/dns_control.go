@@ -13,6 +13,7 @@ import (
 	"math"
 	"net"
 	"net/netip"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -347,6 +348,17 @@ type dialArgument struct {
 	mptcp        bool
 }
 
+func formatDNSName(rawURL string) string {
+	if strings.HasPrefix(rawURL, "https://") {
+		parsedURL, err := url.Parse(rawURL)
+		if err != nil {
+			return rawURL
+		}
+		return parsedURL.Hostname()
+	}
+	return rawURL
+}
+
 func (c *DnsController) Handle_(dnsMessage *dnsmessage.Msg, req *udpRequest) (err error) {
 	if c.log.IsLevelEnabled(logrus.TraceLevel) && len(dnsMessage.Question) > 0 {
 		q := dnsMessage.Question[0]
@@ -363,8 +375,13 @@ func (c *DnsController) Handle_(dnsMessage *dnsmessage.Msg, req *udpRequest) (er
 	var qname string
 	var qtype uint16
 	if len(dnsMessage.Question) != 0 {
-		qname = dnsMessage.Question[0].Name
 		qtype = dnsMessage.Question[0].Qtype
+
+		if qtype == dnsmessage.TypeA || qtype == dnsmessage.TypeAAAA {
+			dnsMessage.Question[0].Name = formatDNSName(dnsMessage.Question[0].Name)
+		}
+
+		qname = dnsMessage.Question[0].Name
 	}
 
 	// Check ip version preference and qtype.
