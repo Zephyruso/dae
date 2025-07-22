@@ -39,6 +39,7 @@ import (
 	"github.com/daeuniverse/outbound/protocol/direct"
 	"github.com/daeuniverse/outbound/transport/grpc"
 	"github.com/daeuniverse/outbound/transport/meek"
+	"github.com/google/uuid"
 	dnsmessage "github.com/miekg/dns"
 	"github.com/mohae/deepcopy"
 	"github.com/sirupsen/logrus"
@@ -780,8 +781,9 @@ func (c *ControlPlane) Serve(readyChan chan<- bool, listener *Listener) (err err
 				break
 			}
 			go func(lconn net.Conn) {
-				c.inConnections.Store(lconn, struct{}{})
-				defer c.inConnections.Delete(lconn)
+				connId := uuid.New().String()
+				c.inConnections.Store(connId, lconn)
+				defer c.inConnections.Delete(connId)
 				if err := c.handleConn(lconn); err != nil {
 					c.log.Warnln("handleConn:", err)
 				}
@@ -985,7 +987,11 @@ func (c *ControlPlane) chooseBestDnsDialer(
 func (c *ControlPlane) AbortConnections() (err error) {
 	var errs []error
 	c.inConnections.Range(func(key, value any) bool {
-		if err = key.(net.Conn).Close(); err != nil {
+		conn, ok := value.(net.Conn)
+		if !ok {
+			return true
+		}
+		if err = conn.Close(); err != nil {
 			errs = append(errs, err)
 		}
 		return true

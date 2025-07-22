@@ -28,6 +28,7 @@ import (
 
 	_ "net/http/pprof"
 
+	api "github.com/daeuniverse/dae/clash-api"
 	"github.com/daeuniverse/dae/cmd/internal"
 	"github.com/daeuniverse/dae/common"
 	"github.com/daeuniverse/dae/common/consts"
@@ -452,6 +453,8 @@ func newControlPlane(log *logrus.Logger, bpf interface{}, dnsCache map[string]*c
 		&conf.Dns,
 		externGeoDataDirs,
 	)
+
+	go api.NewServer(c, log)
 	if err != nil {
 		return nil, err
 	}
